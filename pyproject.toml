@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raider"
+dynamic = ["version"]
+description = "Domain priority scoring tool for bug bounty that helps decide what targets to hunt first."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "pajarori" }]
+
+dependencies = ["tranco", "rich", "httpx", "python-whois", "tldextract"]
+
+[project.scripts]
+raider = "raider.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.dynamic]
+version = { attr = "raider.__version__" }
