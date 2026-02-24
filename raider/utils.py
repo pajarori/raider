@@ -52,3 +52,9 @@ def get_tld_extractor():
     tld_cache_dir = get_cache_dir() / "tldextract"
     tld_cache_dir.mkdir(exist_ok=True)
     return tldextract.TLDExtract(cache_dir=str(tld_cache_dir), suffix_list_urls=())
+
+def is_safe_domain(domain):
+    if not domain:
+        return False
+    d = domain.lower()
+    return not any(c not in "abcdefghijklmnopqrstuvwxyz0123456789.-" for c in d)

@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "raider"
 dynamic = ["version"]
-description = "Domain priority scoring tool for bug bounty that helps decide what targets to hunt first."
+description = "A bug bounty recon helper that ranks and prioritizes domains so you can focus on the best targets first."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "pajarori" }]
 
-dependencies = ["tranco", "rich", "httpx", "python-whois", "tldextract"]
+dependencies = ["tranco", "rich", "httpx", "python-whois", "tldextract", "psycopg"]
 
 [project.scripts]
 raider = "raider.cli:main"

@@ -3,3 +3,4 @@ rich
 httpx
 python-whois
 tldextract
+psycopg

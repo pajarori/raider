@@ -13,7 +13,8 @@ def cprint(*args, **kwargs):
 
 def format_result(result):
     coverage = result.get("coverage", {})
-    return f"[[{result['color']}][bold]{result['score']:06.2f}[/bold][/]] [bold cyan]{result['domain']}[/] -> [bold {result['color']}]{result['tier']}[/]"
+    priority_score = result.get("priority_score", result.get("score", 0))
+    return f"[[{result['color']}][bold]{priority_score:06.2f}[/bold][/]] [bold cyan]{result['domain']}[/] -> [bold {result['color']}]{result['tier']}[/] [dim](raw {result.get('score', 0):.2f}, {result.get('confidence', 'none')} conf)[/]"
 
 def export_results(results, output_path):
     ext = output_path.lower().split('.')[-1] if '.' in output_path else 'txt'
@@ -23,7 +24,7 @@ def export_results(results, output_path):
             with open(output_path, 'w') as f:
                 json.dump(results, f, indent=2, default=str)
         elif ext == 'csv':
-            fieldnames = ["domain", "score", "tier", "confidence", "providers_available", "providers_total", "provider_coverage_ratio", "weight_covered", "weight_total", "weight_coverage_ratio"]
+            fieldnames = ["domain", "priority_score", "score", "tier", "confidence", "providers_available", "providers_total", "provider_coverage_ratio", "weight_covered", "weight_total", "weight_coverage_ratio"]
             with open(output_path, 'w', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
@@ -31,6 +32,7 @@ def export_results(results, output_path):
                     coverage = r.get("coverage", {})
                     writer.writerow({
                         "domain": r.get("domain"),
+                        "priority_score": r.get("priority_score"),
                         "score": r.get("score"),
                         "tier": r.get("tier"),
                         "confidence": r.get("confidence"),
@@ -45,7 +47,7 @@ def export_results(results, output_path):
             with open(output_path, 'w') as f:
                 for r in results:
                     coverage = r.get("coverage", {})
-                    f.write(f"{r.get('domain')},{r.get('score')},{r.get('tier')},{r.get('confidence')},{coverage.get('providers_available')}/{coverage.get('providers_total')}\n")
+                    f.write(f"{r.get('domain')},{r.get('priority_score')},{r.get('score')},{r.get('tier')},{r.get('confidence')},{coverage.get('providers_available')}/{coverage.get('providers_total')}\n")
         
         cprint(f"[dim]Results saved to [cyan]{output_path}[/][/]")
     except OSError as e:
@@ -61,7 +63,7 @@ def open_output_stream(output_path):
             return {"ext": ext, "file": f, "first": True, "path": output_path}
         if ext == 'csv':
             f = open(output_path, 'w', newline='')
-            fieldnames = ["domain", "score", "tier", "confidence", "providers_available", "providers_total", "provider_coverage_ratio", "weight_covered", "weight_total", "weight_coverage_ratio"]
+            fieldnames = ["domain", "priority_score", "score", "tier", "confidence", "providers_available", "providers_total", "provider_coverage_ratio", "weight_covered", "weight_total", "weight_coverage_ratio"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             f.flush()
@@ -90,6 +92,7 @@ def write_output_stream(stream, result):
             coverage = result.get("coverage", {})
             stream["writer"].writerow({
                 "domain": result.get("domain"),
+                "priority_score": result.get("priority_score"),
                 "score": result.get("score"),
                 "tier": result.get("tier"),
                 "confidence": result.get("confidence"),
@@ -102,7 +105,7 @@ def write_output_stream(stream, result):
             })
         else:
             coverage = result.get("coverage", {})
-            f.write(f"{result.get('domain')},{result.get('score')},{result.get('tier')},{result.get('confidence')},{coverage.get('providers_available')}/{coverage.get('providers_total')}\n")
+            f.write(f"{result.get('domain')},{result.get('priority_score')},{result.get('score')},{result.get('tier')},{result.get('confidence')},{coverage.get('providers_available')}/{coverage.get('providers_total')}\n")
         f.flush()
     except OSError as e:
         cprint(f"[red]Error:[/] Could not write to {stream['path']}: {e}")
@@ -229,10 +232,22 @@ def main():
     raider = Raider()
     start_time = time.time()
     output_stream = None
+    results = []
+    interrupted = False
     if args.output and not args.json:
         output_stream = open_output_stream(args.output)
-    results = asyncio.run(scan_domains(raider, domains, max_concurrent=args.threads, output_stream=output_stream))
-    close_output_stream(output_stream)
+    try:
+        results = asyncio.run(scan_domains(raider, domains, max_concurrent=args.threads, output_stream=output_stream))
+    except KeyboardInterrupt:
+        interrupted = True
+    finally:
+        close_output_stream(output_stream)
+    
+    if interrupted:
+        elapsed = time.time() - start_time
+        cprint(f"\n[yellow]Interrupted by user (Ctrl+C).[/]")
+        cprint(f"[dim]Stopped after {elapsed:.2f} seconds.[/]")
+        return
     
     if args.json:
         print(json.dumps(results, indent=2, default=str))

@@ -2,7 +2,7 @@
 
 # raider
 
-A domain priority scoring tool for bug bounty that helps decide what targets to hunt first.
+A bug bounty recon helper that ranks and prioritizes domains so you can focus on the best targets first.
 
 ![raider Demo](raider.gif)
 

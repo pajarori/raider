@@ -2,7 +2,7 @@ import os, httpx
 
 class OpenPageProvider:
     name = "OpenPage"
-    weight = 0.20
+    weight = 0.30
 
     def __init__(self):
         self.api_url = "https://openpagerank.com/api/v1.0/getPageRank"

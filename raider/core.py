@@ -1,5 +1,5 @@
 import asyncio, httpx
-from .utils import TIERS
+from .utils import TIERS, is_safe_domain
 from .provider.tranco import TrancoProvider
 from .provider.openpage import OpenPageProvider
 from .provider.crtsh import CrtShProvider
@@ -15,6 +15,9 @@ class Raider:
         }
         
     async def analyze(self, client: httpx.AsyncClient, domain: str):
+        if not is_safe_domain(domain):
+            return [(provider_id, provider, None) for provider_id, provider in self.analyzers.items()]
+
         async def fetch(provider_id, provider):
             try:
                 value = await provider.analyze(client, domain)
@@ -75,10 +78,12 @@ class Raider:
         score = round(score, 2)
         provider_coverage_ratio = (calculated_providers / total_provider_count) if total_provider_count else 0.0
         weight_coverage_ratio = (total_weight / total_possible_weight) if total_possible_weight else 0.0
-        tier = self.get_tier(score, calculated_providers)
+        priority_score = round(score * weight_coverage_ratio, 2)
+        tier = self.get_tier(priority_score, calculated_providers)
 
         return {
             "score": score,
+            "priority_score": priority_score,
             "tier": tier["name"],
             "color": tier["color"],
             "confidence": self.get_confidence(weight_coverage_ratio),
