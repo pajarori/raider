@@ -51,7 +51,74 @@ def export_results(results, output_path):
     except OSError as e:
         cprint(f"[red]Error:[/] Could not write to {output_path}: {e}")
 
-async def scan_domains(raider, domains, max_concurrent=10):
+def open_output_stream(output_path):
+    ext = output_path.lower().split('.')[-1] if '.' in output_path else 'txt'
+    try:
+        if ext == 'json':
+            f = open(output_path, 'w')
+            f.write("[\n")
+            f.flush()
+            return {"ext": ext, "file": f, "first": True, "path": output_path}
+        if ext == 'csv':
+            f = open(output_path, 'w', newline='')
+            fieldnames = ["domain", "score", "tier", "confidence", "providers_available", "providers_total", "provider_coverage_ratio", "weight_covered", "weight_total", "weight_coverage_ratio"]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            f.flush()
+            return {"ext": ext, "file": f, "writer": writer, "path": output_path}
+
+        f = open(output_path, 'w')
+        return {"ext": ext, "file": f, "path": output_path}
+    except OSError as e:
+        cprint(f"[red]Error:[/] Could not write to {output_path}: {e}")
+        return None
+
+def write_output_stream(stream, result):
+    if not stream:
+        return
+
+    f = stream["file"]
+    ext = stream["ext"]
+
+    try:
+        if ext == 'json':
+            if not stream["first"]:
+                f.write(",\n")
+            f.write(json.dumps(result, indent=2, default=str))
+            stream["first"] = False
+        elif ext == 'csv':
+            coverage = result.get("coverage", {})
+            stream["writer"].writerow({
+                "domain": result.get("domain"),
+                "score": result.get("score"),
+                "tier": result.get("tier"),
+                "confidence": result.get("confidence"),
+                "providers_available": coverage.get("providers_available"),
+                "providers_total": coverage.get("providers_total"),
+                "provider_coverage_ratio": coverage.get("providers_ratio"),
+                "weight_covered": coverage.get("weight_covered"),
+                "weight_total": coverage.get("weight_total"),
+                "weight_coverage_ratio": coverage.get("weight_ratio"),
+            })
+        else:
+            coverage = result.get("coverage", {})
+            f.write(f"{result.get('domain')},{result.get('score')},{result.get('tier')},{result.get('confidence')},{coverage.get('providers_available')}/{coverage.get('providers_total')}\n")
+        f.flush()
+    except OSError as e:
+        cprint(f"[red]Error:[/] Could not write to {stream['path']}: {e}")
+
+def close_output_stream(stream):
+    if not stream:
+        return
+    try:
+        if stream["ext"] == 'json':
+            stream["file"].write("\n]\n")
+        stream["file"].close()
+        cprint(f"[dim]Results saved to [cyan]{stream['path']}[/][/]")
+    except OSError as e:
+        cprint(f"[red]Error:[/] Could not finalize {stream['path']}: {e}")
+
+async def scan_domains(raider, domains, max_concurrent=10, output_stream=None):
     results = []
     semaphore = asyncio.Semaphore(max_concurrent)
     
@@ -71,7 +138,9 @@ async def scan_domains(raider, domains, max_concurrent=10):
         
         if _silent:
             for coro in asyncio.as_completed(tasks):
-                results.append(await coro)
+                result = await coro
+                results.append(result)
+                write_output_stream(output_stream, result)
             return results
         
         with Progress(
@@ -89,6 +158,7 @@ async def scan_domains(raider, domains, max_concurrent=10):
                 result = await coro
                 progress.console.print(format_result(result))
                 results.append(result)
+                write_output_stream(output_stream, result)
                 progress.advance(task)
                 
     return results
@@ -158,11 +228,15 @@ def main():
     
     raider = Raider()
     start_time = time.time()
-    results = asyncio.run(scan_domains(raider, domains, max_concurrent=args.threads))
+    output_stream = None
+    if args.output and not args.json:
+        output_stream = open_output_stream(args.output)
+    results = asyncio.run(scan_domains(raider, domains, max_concurrent=args.threads, output_stream=output_stream))
+    close_output_stream(output_stream)
     
     if args.json:
         print(json.dumps(results, indent=2, default=str))
-    elif args.output:
+    elif args.output and not output_stream:
         export_results(results, args.output)
     
     elapsed = time.time() - start_time
