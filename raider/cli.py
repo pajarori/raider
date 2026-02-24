@@ -14,7 +14,7 @@ def cprint(*args, **kwargs):
 def format_result(result):
     coverage = result.get("coverage", {})
     priority_score = result.get("priority_score", result.get("score", 0))
-    return f"[[{result['color']}][bold]{priority_score:06.2f}[/bold][/]] [bold cyan]{result['domain']}[/] -> [bold {result['color']}]{result['tier']}[/] [dim](raw {result.get('score', 0):.2f}, {result.get('confidence', 'none')} conf)[/]"
+    return f"[[{result['color']}][bold]{priority_score:06.2f}[/bold][/]] [bold cyan]{result['domain']}[/] → [bold {result['color']}]{result['tier']}[/] [dim](raw {result.get('score', 0):.2f}, {result.get('confidence', 'none')} conf)[/]"
 
 def export_results(results, output_path):
     ext = output_path.lower().split('.')[-1] if '.' in output_path else 'txt'

@@ -121,33 +121,16 @@ WHERE name = %s OR name LIKE %s;
             return None
 
         try:
-            for attempt in range(3):
-                try:
-                    with conn.cursor() as cur:
-                        cur.execute("SET statement_timeout = '25s'")
-                        cur.execute(self.sql, (d, d, f"%.{d}"))
-                        row = cur.fetchone()
-                        return int(row[0]) if row and row[0] is not None else 0
-                except Exception as e:
-                    msg = str(e).lower()
-                    transient = (
-                        "conflict with recovery" in msg
-                        or "canceling statement" in msg
-                        or "statement timeout" in msg
-                        or "timeout" in msg
-                    )
-
-                    if attempt < 2 and transient and not getattr(conn, "closed", False):
-                        time.sleep(0.4 * (attempt + 1))
-                        continue
-
-                    if attempt < 2 and getattr(conn, "closed", False):
-                        conn = self._replace_conn(conn)
-                        if conn is None:
-                            return None
-                        time.sleep(0.2)
-                        continue
-                    return None
+            with conn.cursor() as cur:
+                cur.execute("SET statement_timeout = '25s'")
+                cur.execute(self.sql, (d, d, f"%.{d}"))
+                row = cur.fetchone()
+                return int(row[0]) if row and row[0] is not None else 0
+        except Exception:
+            if getattr(conn, "closed", False):
+                self._close_conn(conn)
+                conn = None
+            return None
         finally:
             if conn is not None:
                 try:
