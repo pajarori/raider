@@ -95,7 +95,6 @@ def write_output_stream(stream, result):
                 "priority_score": result.get("priority_score"),
                 "score": result.get("score"),
                 "tier": result.get("tier"),
-                "coverage_conf": result.get("confidence"),
                 "providers_available": coverage.get("providers_available"),
                 "providers_total": coverage.get("providers_total"),
                 "provider_coverage_ratio": coverage.get("providers_ratio"),
